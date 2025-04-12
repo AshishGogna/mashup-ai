@@ -1,0 +1,8 @@
+youtube-search-python 
+youtube-transcript-api 
+openai
+httpx<0.24
+yt-dlp
+ffmpeg
+ffmpeg-python
+fastapi
