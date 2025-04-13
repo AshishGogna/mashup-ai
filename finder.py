@@ -1,9 +1,13 @@
 import time
 import json
 import os
+from dotenv import load_dotenv
 from youtubesearchpython import VideosSearch
 from youtube_transcript_api import YouTubeTranscriptApi
 from openai import OpenAI
+
+# Load environment variables from .env file
+load_dotenv()
 
 client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 # processed_video_ids = set()

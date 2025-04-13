@@ -6,3 +6,7 @@ yt-dlp
 ffmpeg
 ffmpeg-python
 fastapi
+python-dotenv
+praw
+pymongo
+google-genai
