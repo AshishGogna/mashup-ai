@@ -135,3 +135,66 @@ async def proxy_video(id: str, request: Request):
     except Exception as e:
         print(f"Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+    
+@app.get("/api/home/tags")
+def get_next_video(limit: int = Query(default=20)):
+    tags = mongoman.get_unique_tags_with_posters(limit)
+
+    for tag in tags:
+        tag["poster_url"] = f"http://192.168.18.96:8000/api/image?id={tag["video_id"]}"
+
+    code = 200
+    response = {
+        "message": "Tags found",
+        "tags": tags,
+    }
+    if (tags is None):
+        response = {
+            "message": "No tags found",
+        }
+
+    return JSONResponse(content=response, status_code=code)
+
+@app.get("/api/image")
+async def proxy_image(id: str, request: Request):
+    base_headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        ),
+        "Referer": "https://media.redgifs.com/",
+    }
+
+    try:
+        video = mongoman.find_by_id(id)
+        if not video or "urls" not in video or "poster" not in video["urls"]:
+            raise HTTPException(status_code=404, detail="Image not found")
+            
+        url = video["urls"]["poster"]
+        print("Image URL:", url)
+
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, headers=base_headers, timeout=10.0, follow_redirects=True)
+
+            if resp.status_code != 200:
+                raise HTTPException(status_code=resp.status_code, detail="Failed to fetch image")
+
+        return StreamingResponse(
+            resp.aiter_bytes(),
+            status_code=resp.status_code,
+            media_type=resp.headers.get("content-type", "image/jpeg"),
+            headers={
+                "Content-Length": resp.headers.get("content-length"),
+                "Content-Disposition": 'inline; filename="image.jpg"',
+                "Access-Control-Allow-Origin": "*",
+                "Cache-Control": "public, max-age=31536000"  # Cache for 1 year
+            },
+        )
+
+    except httpx.RequestError as e:
+        print(f"Request error: {e}")
+        raise HTTPException(status_code=500, detail="Network error while fetching image")
+    except Exception as e:
+        print(f"Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

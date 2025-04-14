@@ -136,3 +136,65 @@ def search_videos(query, page=1, page_size=10):
                 "total_pages": 0
             }
         }
+
+def get_unique_tags_with_posters(limit=-1):
+    try:
+        # Use MongoDB's aggregation to get unique tags with their video IDs
+        pipeline = [
+            # Unwind the tags array to get one document per tag
+            {"$unwind": "$tags"},
+            # Group by tag and get a random video's ID for each tag
+            {
+                "$group": {
+                    "_id": "$tags",
+                    "video_id": {"$first": "$_id"},
+                    "count": {"$sum": 1},
+                    "videos": {
+                        "$push": {
+                            "video_id": "$_id"
+                        }
+                    }
+                }
+            },
+            # Add a random video ID from the videos array
+            {
+                "$addFields": {
+                    "video_id": {
+                        "$arrayElemAt": [
+                            "$videos.video_id",
+                            {"$mod": [{"$toInt": {"$multiply": ["$count", 0.5]}}, {"$size": "$videos"}]}
+                        ]
+                    }
+                }
+            },
+            # Remove the videos array as it's no longer needed
+            {"$project": {"videos": 0}}
+        ]
+        
+        # Add sorting based on limit
+        if limit != -1:
+            # Sort by count in descending order when limit is specified
+            pipeline.append({"$sort": {"count": -1, "_id": 1}})
+            pipeline.append({"$limit": limit})
+        else:
+            # Sort alphabetically when getting all tags
+            pipeline.append({"$sort": {"_id": 1}})
+        
+        # Execute the aggregation
+        result = videos_collection.aggregate(pipeline)
+        
+        # Format the result
+        tags_with_videos = [
+            {
+                "tag": doc["_id"],
+                "poster_url": "",  # Use the actual poster URL
+                "video_id": str(doc["video_id"]),  # Convert ObjectId to string
+                "count": doc["count"]
+            }
+            for doc in result
+        ]
+        
+        return tags_with_videos
+    except Exception as e:
+        print(f"get_unique_tags_with_posters error: {e}")
+        return []
