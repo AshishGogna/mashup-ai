@@ -198,3 +198,59 @@ def get_unique_tags_with_posters(limit=-1):
     except Exception as e:
         print(f"get_unique_tags_with_posters error: {e}")
         return []
+
+def get_random_videos(limit=10):
+    try:
+        # Use MongoDB's $sample operator to get random documents
+        pipeline = [
+            {"$sample": {"size": limit}},
+            {"$project": {
+                "_id": 1,
+                "url": "$urls.sd", 
+                "scenes": 1,
+                # "poster_url": "$urls.poster"
+            }}
+        ]
+        
+        result = videos_collection.aggregate(pipeline)
+        videos = list(result)
+        
+        # Convert ObjectId to string for JSON serialization
+        for video in videos:
+            video['_id'] = str(video['_id'])
+            # Ensure we have a valid URL
+            if not video.get('url'):
+                video['url'] = f"http://192.168.18.96:8000/api/video?id={video['_id']}"
+        
+        return videos
+    except Exception as e:
+        print(f"get_random_videos error: {e}")
+        return []
+
+def find_next_10(last_id, category=None):
+    try:
+        query = {}
+        if last_id:
+            query["_id"] = {"$gt": ObjectId(last_id)}
+        else:
+            # Get a random video ID to start from
+            random_video = videos_collection.aggregate([
+                {"$sample": {"size": 1}},
+                {"$project": {"_id": 1}}
+            ])
+            random_video = list(random_video)
+            if random_video:
+                query["_id"] = {"$gte": random_video[0]["_id"]}
+        
+        if category:
+            query["tags"] = category  # MongoDB will match if the tag exists in the array
+        
+        result = videos_collection.find(query).sort("_id", 1).limit(5)
+        videos = list(result)
+        if videos:
+            return [json.loads(dumps(video)) for video in videos]
+        else:
+            return []
+    except Exception as e:
+        print(f"find_next_10 error: {e}")
+        return []

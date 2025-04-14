@@ -155,6 +155,26 @@ def get_next_video(limit: int = Query(default=20)):
 
     return JSONResponse(content=response, status_code=code)
 
+@app.get("/api/home/scenes")
+def get_next_video():
+    videos = mongoman.get_random_videos()
+
+    for video in videos:
+        # video["poster_url"] = f"http://192.168.18.96:8000/api/image?id={video["_id"]}"
+        video["url"] = f"http://192.168.18.96:8000/api/video?id={video["_id"]}"
+
+    code = 200
+    response = {
+        "message": "Videos found",
+        "videos": videos,
+    }
+    if (videos is None):
+        response = {
+            "message": "No videos found",
+        }
+
+    return JSONResponse(content=response, status_code=code)
+
 @app.get("/api/image")
 async def proxy_image(id: str, request: Request):
     base_headers = {
@@ -198,3 +218,43 @@ async def proxy_image(id: str, request: Request):
     except Exception as e:
         print(f"Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/scenes")
+def get_next_video(with_id: str = Query(default=None), last_id: str = Query(default=None), category: str = Query(default=None)):
+
+    vs = []
+
+    if (with_id is not None):
+        video = mongoman.find_by_id(with_id)
+        id = str(video["_id"])
+        v = {
+            "_id": id,
+            "url": f"http://192.168.18.96:8000/api/video?id={id}",
+            "tags": video["tags"],
+            "scenes": video.get("scenes", []),  # Use get() with default empty list
+        }
+        vs.append(v)
+        last_id = with_id
+
+    videos = mongoman.find_next_10(last_id, category)
+    for video in videos:
+        id = str(video["_id"]["$oid"])
+        v = {
+            "_id": id,
+            "url": f"http://192.168.18.96:8000/api/video?id={id}",
+            "tags": video["tags"],
+            "scenes": video.get("scenes", []),  # Use get() with default empty list
+        }
+        vs.append(v)
+
+    code = 200
+    response = {
+        "message": "Videos found",
+        "videos": vs,
+    }
+    if (videos is None):
+        response = {
+            "message": "No videos found",
+        }
+
+    return JSONResponse(content=response, status_code=code)
