@@ -10,3 +10,4 @@ python-dotenv
 praw
 pymongo
 google-genai
+httpx

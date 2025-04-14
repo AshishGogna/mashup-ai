@@ -44,6 +44,14 @@ def find_next(last_id):
 def find_one(source_id):
     return videos_collection.find_one({"source_id": source_id})
 
+def find_by_id(video_id_str):
+    try:
+        video_id = ObjectId(video_id_str)
+        return videos_collection.find_one({"_id": video_id})
+    except Exception as e:
+        print(f"find_by_id error: {e}")
+        return None
+
 def save_video(data):
     print(f"save_video: {data}")
     try:
