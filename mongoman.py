@@ -2,9 +2,12 @@ from pymongo import MongoClient
 import json
 from bson import ObjectId
 from bson.json_util import dumps
+from dotenv import load_dotenv
+import os
+load_dotenv()
 
 # === 1. MongoDB Setup ===
-client = MongoClient("mongodb://3.7.29.123:27017/")
+client = MongoClient(os.getenv("MONGODB_URL"))
 db = client["scraper"]
 videos_collection = db["videos"]
 
@@ -245,7 +248,7 @@ def get_random_videos(limit=10):
             video['_id'] = str(video['_id'])
             # Ensure we have a valid URL
             if not video.get('url'):
-                video['url'] = f"http://192.168.18.96:8000/api/video?id={video['_id']}"
+                video['url'] = f"http://3.7.29.123:7000/api/video?id={video['_id']}"
         
         return videos
     except Exception as e:

@@ -148,7 +148,7 @@ def get_next_video(limit: int = Query(default=20), page: int = Query(default=1),
         print(tags)
 
     for tag in tags:
-        tag["poster_url"] = f"http://192.168.18.96:8000/api/image?id={tag["video_id"]}"
+        tag["poster_url"] = f"http://3.7.29.123:7000/api/image?id={tag["video_id"]}"
 
     code = 200
     response = {
@@ -167,8 +167,7 @@ def get_next_video():
     videos = mongoman.get_random_videos()
 
     for video in videos:
-        # video["poster_url"] = f"http://192.168.18.96:8000/api/image?id={video["_id"]}"
-        video["url"] = f"http://192.168.18.96:8000/api/video?id={video["_id"]}"
+        video["url"] = f"http://3.7.29.123:7000/api/video?id={video["_id"]}"
 
     code = 200
     response = {
@@ -240,7 +239,7 @@ def get_next_video(with_id: str = Query(default=None), last_id: str = Query(defa
         id = str(video["_id"])
         v = {
             "_id": id,
-            "url": f"http://192.168.18.96:8000/api/video?id={id}",
+            "url": f"http://3.7.29.123:7000/api/video?id={id}",
             "tags": video["tags"],
             "scenes": video.get("scenes", []),  # Use get() with default empty list
             "source": video.get("source", ""),
@@ -260,7 +259,7 @@ def get_next_video(with_id: str = Query(default=None), last_id: str = Query(defa
             id = str(video["_id"])
         v = {
             "_id": id,
-            "url": f"http://192.168.18.96:8000/api/video?id={id}",
+            "url": f"http://3.7.29.123:7000/api/video?id={id}",
             "tags": video["tags"],
             "scenes": video.get("scenes", []),
             "source": video["source"],
