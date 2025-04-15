@@ -11,3 +11,4 @@ praw
 pymongo
 google-genai
 httpx
+fastapi-analytics

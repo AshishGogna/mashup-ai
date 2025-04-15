@@ -15,8 +15,13 @@ import httpx
 from fastapi.responses import StreamingResponse
 from fastapi import Request
 from starlette.status import HTTP_206_PARTIAL_CONTENT
+from api_analytics.fastapi import Analytics
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI()
+app.add_middleware(Analytics, api_key=os.getenv("ANALYTICS_API_KEY")) 
 
 # Add CORS middleware
 app.add_middleware(
@@ -226,7 +231,7 @@ def get_next_video(with_id: str = Query(default=None), last_id: str = Query(defa
 
     vs = []
     if (search is not None):        
-        videos = _search_videos(search, last_id)
+        videos = _search_videos(search, last_id)["results"]
     else:
         videos = mongoman.find_next_10(last_id, category)
 
@@ -238,19 +243,31 @@ def get_next_video(with_id: str = Query(default=None), last_id: str = Query(defa
             "url": f"http://192.168.18.96:8000/api/video?id={id}",
             "tags": video["tags"],
             "scenes": video.get("scenes", []),  # Use get() with default empty list
+            "source": video.get("source", ""),
+            "source_url": video.get("source_url", ""),
         }
         vs.append(v)
         last_id = with_id
 
-    videos = mongoman.find_next_10(last_id, category)
+    # videos = mongoman.find_next_10(last_id, category)
     for video in videos:
-        id = str(video["_id"]["$oid"])
+        print("*******")
+        print(video)
+        # Convert ObjectId to string if it's an ObjectId
+        if isinstance(video["_id"], dict) and "$oid" in video["_id"]:
+            id = str(video["_id"]["$oid"])
+        else:
+            id = str(video["_id"])
         v = {
             "_id": id,
             "url": f"http://192.168.18.96:8000/api/video?id={id}",
             "tags": video["tags"],
-            "scenes": video.get("scenes", []),  # Use get() with default empty list
+            "scenes": video.get("scenes", []),
+            "source": video["source"],
+            "source_url": video["urls"]["web_url"],
         }
+        print("*******")
+        print(v)
         vs.append(v)
 
     code = 200
