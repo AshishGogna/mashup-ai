@@ -132,8 +132,15 @@ async def proxy_video(id: str, request: Request):
         raise HTTPException(status_code=500, detail=str(e))
     
 @app.get("/api/home/tags")
-def get_next_video(limit: int = Query(default=20)):
-    tags = mongoman.get_unique_tags_with_posters(limit)
+def get_next_video(limit: int = Query(default=20), page: int = Query(default=1), search: str = Query(default=None)):
+    tags = []
+    if (search is not None):
+        results = mongoman.search_unique_tags_with_posters(limit, page, search)
+        tags = results["tags"]
+    else:
+        tags = mongoman.get_unique_tags_with_posters(limit, page)["results"]
+        print("******XXXXXX")
+        print(tags)
 
     for tag in tags:
         tag["poster_url"] = f"http://192.168.18.96:8000/api/image?id={tag["video_id"]}"
@@ -143,7 +150,7 @@ def get_next_video(limit: int = Query(default=20)):
         "message": "Tags found",
         "tags": tags,
     }
-    if (tags is None):
+    if (len(tags) == 0):
         response = {
             "message": "No tags found",
         }

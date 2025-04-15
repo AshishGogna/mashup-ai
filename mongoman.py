@@ -139,7 +139,7 @@ def search_videos(query, last_id=None, page_size=10):
             }
         }
 
-def get_unique_tags_with_posters(limit=-1):
+def get_unique_tags_with_posters(limit=10, page=1):
     try:
         # Use MongoDB's aggregation to get unique tags with their video IDs
         pipeline = [
@@ -170,20 +170,25 @@ def get_unique_tags_with_posters(limit=-1):
                 }
             },
             # Remove the videos array as it's no longer needed
-            {"$project": {"videos": 0}}
+            {"$project": {"videos": 0}},
+            # Sort by tag name
+            {"$sort": {"_id": 1}},
+            # Skip and limit for pagination
+            {"$skip": (page - 1) * limit},
+            {"$limit": limit}
         ]
         
-        # Add sorting based on limit
-        if limit != -1:
-            # Sort by count in descending order when limit is specified
-            pipeline.append({"$sort": {"count": -1, "_id": 1}})
-            pipeline.append({"$limit": limit})
-        else:
-            # Sort alphabetically when getting all tags
-            pipeline.append({"$sort": {"_id": 1}})
+        # Get total count for pagination
+        total_pipeline = [
+            {"$unwind": "$tags"},
+            {"$group": {"_id": "$tags"}},
+            {"$count": "total"}
+        ]
+        total_result = list(videos_collection.aggregate(total_pipeline))
+        total = total_result[0]["total"] if total_result else 0
         
-        # Execute the aggregation
-        result = videos_collection.aggregate(pipeline)
+        # Execute the main aggregation
+        result = list(videos_collection.aggregate(pipeline))
         
         # Format the result
         tags_with_videos = [
@@ -196,10 +201,28 @@ def get_unique_tags_with_posters(limit=-1):
             for doc in result
         ]
         
-        return tags_with_videos
+        return {
+            "results": tags_with_videos,
+            "pagination": {
+                "total": total,
+                "page": page,
+                "limit": limit,
+                "total_pages": (total + limit - 1) // limit,
+                "has_more": page * limit < total
+            }
+        }
     except Exception as e:
         print(f"get_unique_tags_with_posters error: {e}")
-        return []
+        return {
+            "results": [],
+            "pagination": {
+                "total": 0,
+                "page": page,
+                "limit": limit,
+                "total_pages": 0,
+                "has_more": False
+            }
+        }
 
 def get_random_videos(limit=10):
     try:
@@ -256,3 +279,119 @@ def find_next_10(last_id, category=None):
     except Exception as e:
         print(f"find_next_10 error: {e}")
         return []
+
+def search_tags(query, page=1, page_size=10):
+    skip_count = (page - 1) * page_size
+
+    pipeline = [
+        {"$unwind": "$tags"},
+        {"$match": {"tags": {"$regex": query, "$options": "i"}}},  # case-insensitive match
+        {"$group": {"_id": "$tags"}},
+        {"$sort": {"_id": 1}},
+        {"$skip": skip_count},
+        {"$limit": page_size}
+    ]
+    try:
+        results = [doc["_id"] for doc in videos_collection.aggregate(pipeline)]
+        return results
+    except Exception as e:
+        print(f"search_tags error: {e}")
+        return []
+
+def search_unique_tags_with_posters(limit=10, page=1, search_query=None):
+    try:
+        # Build the match stage for search query if provided
+        match_stage = {"$match": {}}
+        if search_query:
+            match_stage["$match"]["tags"] = {"$regex": search_query, "$options": "i"}
+        
+        # Use MongoDB's aggregation to get unique tags with their video IDs
+        pipeline = [
+            # Add search query match if provided
+            match_stage,
+            # Unwind the tags array to get one document per tag
+            {"$unwind": "$tags"},
+            # Add tag match if search query is provided
+            *([{"$match": {"tags": {"$regex": search_query, "$options": "i"}}}] if search_query else []),
+            # Group by tag and get a random video's ID for each tag
+            {
+                "$group": {
+                    "_id": "$tags",
+                    "video_id": {"$first": "$_id"},
+                    "count": {"$sum": 1},
+                    "videos": {
+                        "$push": {
+                            "video_id": "$_id"
+                        }
+                    }
+                }
+            },
+            # Add a random video ID from the videos array
+            {
+                "$addFields": {
+                    "video_id": {
+                        "$arrayElemAt": [
+                            "$videos.video_id",
+                            {"$mod": [{"$toInt": {"$multiply": ["$count", 0.5]}}, {"$size": "$videos"}]}
+                        ]
+                    }
+                }
+            },
+            # Remove the videos array as it's no longer needed
+            {"$project": {"videos": 0}},
+            # Sort by tag name
+            {"$sort": {"_id": 1}},
+            # Skip and limit for pagination
+            {"$skip": (page - 1) * limit},
+            {"$limit": limit}
+        ]
+        
+        # Get total count for pagination
+        total_pipeline = [
+            # Add search query match if provided
+            match_stage,
+            {"$unwind": "$tags"},
+            # Add tag match if search query is provided
+            *([{"$match": {"tags": {"$regex": search_query, "$options": "i"}}}] if search_query else []),
+            {"$group": {"_id": "$tags"}},
+            {"$count": "total"}
+        ]
+        total_result = list(videos_collection.aggregate(total_pipeline))
+        total = total_result[0]["total"] if total_result else 0
+        
+        # Execute the main aggregation
+        result = list(videos_collection.aggregate(pipeline))
+        
+        # Format the result
+        tags_with_videos = [
+            {
+                "tag": doc["_id"],
+                "poster_url": "",  # Use the actual poster URL
+                "video_id": str(doc["video_id"]),  # Convert ObjectId to string
+                "count": doc["count"]
+            }
+            for doc in result
+        ]
+
+        return {
+            "tags": tags_with_videos,
+            "pagination": {
+                "total": total,
+                "page": page,
+                "limit": limit,
+                "total_pages": (total + limit - 1) // limit,
+                "has_more": page * limit < total
+            }
+        }
+    except Exception as e:
+        print(f"search_unique_tags_with_posters error: {e}")
+        return {
+            "tags": [],
+            "pagination": {
+                "total": 0,
+                "page": page,
+                "limit": limit,
+                "total_pages": 0,
+                "has_more": False
+            }
+        }
