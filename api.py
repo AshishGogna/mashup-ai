@@ -148,7 +148,7 @@ def get_next_video(limit: int = Query(default=20), page: int = Query(default=1),
         print(tags)
 
     for tag in tags:
-        tag["poster_url"] = f"http://3.7.29.123:7000/api/image?id={tag["video_id"]}"
+        tag["poster_url"] = f"http://3.7.29.123:7000/api/image?id={tag['video_id']}"
 
     code = 200
     response = {
@@ -167,7 +167,7 @@ def get_next_video():
     videos = mongoman.get_random_videos()
 
     for video in videos:
-        video["url"] = f"http://3.7.29.123:7000/api/video?id={video["_id"]}"
+        video["url"] = f"http://3.7.29.123:7000/api/video?id={video['_id']}"
 
     code = 200
     response = {
