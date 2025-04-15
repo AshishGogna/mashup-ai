@@ -65,13 +65,8 @@ def update_video(request: UpdateVideoRequest):
     return JSONResponse(content=response, status_code=code)
 
 @app.get("/api/search")
-def get_next_video(query: str = Query(default=None)):
-    # print(all_videos)
-    # print(len(all_videos))
-    query = llm_gemini.search(query)
-    print(query)
-    results = mongoman.search_videos(query)
-    print(results)
+def get_next_video(query: str = Query(default=None), last_id: str = Query(default=None)):
+    results = _search_videos(query, last_id)
 
     code = 400
     response = {
@@ -220,9 +215,13 @@ async def proxy_image(id: str, request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/scenes")
-def get_next_video(with_id: str = Query(default=None), last_id: str = Query(default=None), category: str = Query(default=None)):
+def get_next_video(with_id: str = Query(default=None), last_id: str = Query(default=None), category: str = Query(default=None), search: str = Query(default=None)):
 
     vs = []
+    if (search is not None):        
+        videos = _search_videos(search, last_id)
+    else:
+        videos = mongoman.find_next_10(last_id, category)
 
     if (with_id is not None):
         video = mongoman.find_by_id(with_id)
@@ -258,3 +257,7 @@ def get_next_video(with_id: str = Query(default=None), last_id: str = Query(defa
         }
 
     return JSONResponse(content=response, status_code=code)
+
+def _search_videos(query: str, last_id: str):
+    query = llm_gemini.search(query)
+    return mongoman.search_videos(query, last_id)

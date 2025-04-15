@@ -96,16 +96,17 @@ def get_unique_scene_actions():
         print(f"get_unique_scene_actions error: {e}")
         return []
 
-def search_videos(query, page=1, page_size=10):
+def search_videos(query, last_id=None, page_size=10):
     try:
-        # Calculate skip value
-        skip = (page - 1) * page_size
+        # If last_id is provided, add it to the query to get results after that ID
+        if last_id:
+            query['_id'] = {'$gt': ObjectId(last_id)}
         
         # Get total count for pagination info
-        total = videos_collection.count_documents(query)
+        # total = videos_collection.count_documents(query)
         
-        # Execute the query with pagination
-        cursor = videos_collection.find(query).skip(skip).limit(page_size)
+        # Execute the query with limit
+        cursor = videos_collection.find(query).sort('_id', 1).limit(page_size)
         results = list(cursor)
         
         # Convert results to JSON serializable format
@@ -115,14 +116,16 @@ def search_videos(query, page=1, page_size=10):
             doc['_id'] = str(doc['_id'])
             serializable_results.append(doc)
         
+        # Get the last ID for next page
+        last_result_id = str(results[-1]['_id']) if results else None
+        
         # Return results with pagination info
         return {
             "results": serializable_results,
             "pagination": {
-                "total": total,
-                "page": page,
-                "page_size": page_size,
-                "total_pages": (total + page_size - 1) // page_size  # Ceiling division
+                # "total": total,
+                "last_id": last_result_id,
+                # "has_more": len(results) == page_size
             }
         }
     except Exception as e:
@@ -130,10 +133,9 @@ def search_videos(query, page=1, page_size=10):
         return {
             "results": [],
             "pagination": {
-                "total": 0,
-                "page": page,
-                "page_size": page_size,
-                "total_pages": 0
+                # "total": 0,
+                "last_id": None,
+                # "has_more": False
             }
         }
 
