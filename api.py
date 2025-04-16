@@ -241,7 +241,7 @@ def get_next_video(with_id: str = Query(default=None), last_id: str = Query(defa
             "_id": id,
             "url": f"http://3.7.29.123:7000/api/video?id={id}",
             "tags": video["tags"],
-            "scenes": video.get("scenes", []),  # Use get() with default empty list
+            "scenes": _group_consecutive_scenes(video.get("scenes", [])),
             "source": video.get("source", ""),
             "source_url": video.get("source_url", ""),
         }
@@ -261,7 +261,7 @@ def get_next_video(with_id: str = Query(default=None), last_id: str = Query(defa
             "_id": id,
             "url": f"http://3.7.29.123:7000/api/video?id={id}",
             "tags": video["tags"],
-            "scenes": video.get("scenes", []),
+            "scenes": _group_consecutive_scenes(video.get("scenes", [])),
             "source": video["source"],
             "source_url": video["urls"]["web_url"],
         }
@@ -280,7 +280,34 @@ def get_next_video(with_id: str = Query(default=None), last_id: str = Query(defa
         }
 
     return JSONResponse(content=response, status_code=code)
-
+            
 def _search_videos(query: str, last_id: str):
     query = llm_gemini.search(query)
     return mongoman.search_videos(query, last_id)
+
+def _group_consecutive_scenes(scenes):
+    if not scenes:
+        return []
+    
+    grouped_scenes = []
+    current_action = scenes[0]["action"]
+    current_start = scenes[0]["start"]
+    
+    for scene in scenes[1:]:
+        if scene["action"] == current_action:
+            continue
+        else:
+            grouped_scenes.append({
+                "action": current_action,
+                "start": current_start
+            })
+            current_action = scene["action"]
+            current_start = scene["start"]
+    
+    # Add the last group
+    grouped_scenes.append({
+        "action": current_action,
+        "start": current_start
+    })
+    
+    return grouped_scenes
